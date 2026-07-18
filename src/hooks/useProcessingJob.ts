@@ -23,6 +23,7 @@ import {
   ACCEPTED_EXTENSIONS,
   MAX_FILE_BYTES,
   type ClientProcessingConfig,
+  type ProcessingConfigStatus,
   type ProcessingFailure,
   type SelectedAudioMeta,
 } from "@/lib/processing/types";
@@ -47,11 +48,10 @@ export function useProcessingJob(options: UseProcessingJobOptions = {}) {
   const realProviderRef = useRef<RealProvider>(createRealProcessingProvider());
   const injectedProviderRef = useRef(options.provider);
 
-  const [config, setConfig] = useState<ClientProcessingConfig>({
-    mode: "mock",
-    realConfigured: false,
-  });
-  const [configLoaded, setConfigLoaded] = useState(false);
+  const [configStatus, setConfigStatus] =
+    useState<ProcessingConfigStatus>("loading");
+  const [config, setConfig] = useState<ClientProcessingConfig | null>(null);
+  const [configError, setConfigError] = useState<string | null>(null);
 
   const [state, dispatch] = useReducer(
     reduceProcessingJob,
@@ -76,11 +76,20 @@ export function useProcessingJob(options: UseProcessingJobOptions = {}) {
 
   useEffect(() => {
     let cancelled = false;
-    void fetchClientProcessingConfig().then((next) => {
+
+    void fetchClientProcessingConfig().then((result) => {
       if (cancelled) return;
-      setConfig(next);
-      setConfigLoaded(true);
+      if (result.status === "ready") {
+        setConfig(result.config);
+        setConfigError(null);
+        setConfigStatus("ready");
+        return;
+      }
+      setConfig(null);
+      setConfigError(result.message);
+      setConfigStatus("error");
     });
+
     return () => {
       cancelled = true;
     };
@@ -111,23 +120,35 @@ export function useProcessingJob(options: UseProcessingJobOptions = {}) {
     jobGenerationRef.current += 1;
   }, []);
 
-  const getProvider = useCallback((): KaraokeProcessingProvider => {
+  const configReady = configStatus === "ready" && config !== null;
+  const requireProviderConsent =
+    configReady && config.mode === "real" && config.realConfigured;
+  const realModeUnavailable =
+    configReady && config.mode === "real" && !config.realConfigured;
+  const processingEnabled =
+    configReady &&
+    ((config.mode === "mock") ||
+      (config.mode === "real" && config.realConfigured));
+
+  const getProvider = useCallback((): KaraokeProcessingProvider | null => {
     if (injectedProviderRef.current) return injectedProviderRef.current;
+    if (!configReady || !config) return null;
+    // Only an explicit server mock mode enables the mock provider.
+    if (config.mode === "mock") return mockProviderRef.current;
     if (config.mode === "real" && config.realConfigured) {
       return realProviderRef.current;
     }
-    return mockProviderRef.current;
-  }, [config.mode, config.realConfigured]);
-
-  const requireProviderConsent = config.mode === "real" && config.realConfigured;
-  const realModeUnavailable = config.mode === "real" && !config.realConfigured;
+    return null;
+  }, [config, configReady]);
 
   const runProviderJob = useCallback(
     (selected: SelectedAudioMeta, nextFile: File) => {
+      const provider = getProvider();
+      if (!provider) return;
+
       const controller = new AbortController();
       abortRef.current = controller;
       const generation = jobGenerationRef.current;
-      const provider = getProvider();
 
       void provider.startJob({
         selected,
@@ -261,7 +282,7 @@ export function useProcessingJob(options: UseProcessingJobOptions = {}) {
     const current = stateRef.current;
     const currentFile = fileRef.current;
 
-    if (realModeUnavailable) {
+    if (!processingEnabled || realModeUnavailable) {
       return;
     }
 
@@ -273,8 +294,7 @@ export function useProcessingJob(options: UseProcessingJobOptions = {}) {
       return;
     }
 
-    // Never silently fall back to mock when real mode is selected.
-    if (config.mode === "real" && !config.realConfigured) {
+    if (!getProvider()) {
       return;
     }
 
@@ -289,8 +309,8 @@ export function useProcessingJob(options: UseProcessingJobOptions = {}) {
     runProviderJob(next.selected, currentFile);
   }, [
     bumpJobGeneration,
-    config.mode,
-    config.realConfigured,
+    getProvider,
+    processingEnabled,
     realModeUnavailable,
     requireProviderConsent,
     runProviderJob,
@@ -306,6 +326,7 @@ export function useProcessingJob(options: UseProcessingJobOptions = {}) {
     const current = stateRef.current;
     const currentFile = fileRef.current;
     if (
+      !processingEnabled ||
       current.status !== "failed" ||
       !current.failure?.retryable ||
       !currentFile ||
@@ -316,7 +337,7 @@ export function useProcessingJob(options: UseProcessingJobOptions = {}) {
       return;
     }
 
-    if (realModeUnavailable) {
+    if (realModeUnavailable || !getProvider()) {
       return;
     }
 
@@ -331,6 +352,8 @@ export function useProcessingJob(options: UseProcessingJobOptions = {}) {
     runProviderJob(next.selected, currentFile);
   }, [
     bumpJobGeneration,
+    getProvider,
+    processingEnabled,
     realModeUnavailable,
     requireProviderConsent,
     runProviderJob,
@@ -349,17 +372,38 @@ export function useProcessingJob(options: UseProcessingJobOptions = {}) {
     void selectFile(null);
   }, [selectFile]);
 
+  const reloadConfig = useCallback(() => {
+    setConfigStatus("loading");
+    setConfig(null);
+    setConfigError(null);
+    void fetchClientProcessingConfig().then((result) => {
+      if (result.status === "ready") {
+        setConfig(result.config);
+        setConfigError(null);
+        setConfigStatus("ready");
+        return;
+      }
+      setConfig(null);
+      setConfigError(result.message);
+      setConfigStatus("error");
+    });
+  }, []);
+
   return {
     state,
     file,
     config,
-    configLoaded,
+    configStatus,
+    configError,
+    configReady,
     requireProviderConsent,
     realModeUnavailable,
+    processingEnabled,
     formattedSize: state.selected
       ? formatFileSize(state.selected.sizeBytes)
       : null,
     canStart:
+      processingEnabled &&
       canStartProcessing(state, { requireProviderConsent }) &&
       Boolean(file) &&
       !realModeUnavailable,
@@ -372,5 +416,6 @@ export function useProcessingJob(options: UseProcessingJobOptions = {}) {
     cancelProcessing,
     retryProcessing,
     chooseAnotherFile,
+    reloadConfig,
   };
 }

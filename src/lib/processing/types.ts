@@ -108,3 +108,10 @@ export type ClientProcessingConfig = {
   mode: ProcessingMode;
   realConfigured: boolean;
 };
+
+/** Client-side processing configuration probe state. */
+export type ProcessingConfigStatus = "loading" | "ready" | "error";
+
+export type ClientProcessingConfigResult =
+  | { status: "ready"; config: ClientProcessingConfig }
+  | { status: "error"; message: string };

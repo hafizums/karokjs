@@ -8,7 +8,7 @@ import type {
 } from "./provider";
 import type {
   ActiveProcessingStage,
-  ClientProcessingConfig,
+  ClientProcessingConfigResult,
   ProcessingFailure,
   ProcessingJobResult,
 } from "./types";
@@ -404,27 +404,63 @@ export function createRealProcessingProvider(
   };
 }
 
+/**
+ * Fetch authoritative processing configuration.
+ * Failures never degrade to mock — callers must keep an error/loading state.
+ * Only an explicit server `mode: "mock"` response enables mock processing.
+ */
 export async function fetchClientProcessingConfig(
   fetchImpl: typeof fetch = fetch,
-): Promise<ClientProcessingConfig> {
+): Promise<ClientProcessingConfigResult> {
   try {
     const response = await fetchImpl("/api/processing/config", {
       method: "GET",
       cache: "no-store",
     });
     if (!response.ok) {
-      return { mode: "mock", realConfigured: false };
+      return {
+        status: "error",
+        message:
+          "Could not load processing configuration. Refresh and try again.",
+      };
     }
+
     const body = (await response.json()) as {
-      mode?: string;
-      realConfigured?: boolean;
+      mode?: unknown;
+      realConfigured?: unknown;
     };
+
+    if (body.mode === "mock") {
+      return {
+        status: "ready",
+        config: {
+          mode: "mock",
+          realConfigured: Boolean(body.realConfigured),
+        },
+      };
+    }
+
+    if (body.mode === "real") {
+      return {
+        status: "ready",
+        config: {
+          mode: "real",
+          realConfigured: Boolean(body.realConfigured),
+        },
+      };
+    }
+
     return {
-      mode: body.mode === "real" ? "real" : "mock",
-      realConfigured: Boolean(body.realConfigured),
+      status: "error",
+      message:
+        "Processing configuration was invalid. Refresh and try again.",
     };
   } catch {
-    return { mode: "mock", realConfigured: false };
+    return {
+      status: "error",
+      message:
+        "Could not load processing configuration. Refresh and try again.",
+    };
   }
 }
 

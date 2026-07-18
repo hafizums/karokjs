@@ -12,8 +12,12 @@ export function CreateKaraoke() {
   const {
     state,
     config,
+    configStatus,
+    configError,
+    configReady,
     requireProviderConsent,
     realModeUnavailable,
+    processingEnabled,
     formattedSize,
     canStart,
     isActive,
@@ -25,6 +29,7 @@ export function CreateKaraoke() {
     cancelProcessing,
     retryProcessing,
     chooseAnotherFile,
+    reloadConfig,
   } = useProcessingJob();
 
   useEffect(() => {
@@ -52,9 +57,10 @@ export function CreateKaraoke() {
       : null;
 
   const showReadyControls =
-    state.status === "ready" ||
-    state.status === "idle" ||
-    state.status === "validating";
+    processingEnabled &&
+    (state.status === "ready" ||
+      state.status === "idle" ||
+      state.status === "validating");
 
   const showProgress =
     isActive || state.status === "failed" || state.status === "cancelled";
@@ -63,9 +69,11 @@ export function CreateKaraoke() {
     state.status === "completed" && state.result?.mode === "real";
 
   const disclosure =
-    config.mode === "real" && config.realConfigured
+    configReady && config?.mode === "real" && config.realConfigured
       ? "Your audio will be sent to WaveSpeed for vocal separation. The isolated vocal track will then be sent to ElevenLabs for transcription."
-      : "Phase 3A uses a simulated processor. Your audio stays on this device.";
+      : configReady && config?.mode === "mock"
+        ? "Phase 3A uses a simulated processor. Your audio stays on this device."
+        : null;
 
   return (
     <div className="create-shell">
@@ -79,9 +87,29 @@ export function CreateKaraoke() {
         </Link>
       </header>
 
-      <p className="create-disclosure" role="note">
-        {disclosure}
-      </p>
+      {configStatus === "loading" ? (
+        <p className="create-status" role="status" aria-live="polite">
+          Loading processing configuration…
+        </p>
+      ) : null}
+
+      {configStatus === "error" ? (
+        <div className="create-ready" role="alert">
+          <p className="field-error">
+            {configError ??
+              "Could not load processing configuration. Refresh and try again."}
+          </p>
+          <button type="button" className="home-cta" onClick={reloadConfig}>
+            Retry configuration
+          </button>
+        </div>
+      ) : null}
+
+      {disclosure ? (
+        <p className="create-disclosure" role="note">
+          {disclosure}
+        </p>
+      ) : null}
 
       {realModeUnavailable ? (
         <p className="field-error" role="alert">
@@ -145,10 +173,14 @@ export function CreateKaraoke() {
             </button>
           </div>
         </section>
-      ) : (
+      ) : configReady ? (
         <>
           <AudioDropzone
-            disabled={isActive || state.status === "validating"}
+            disabled={
+              !processingEnabled ||
+              isActive ||
+              state.status === "validating"
+            }
             hasFile={Boolean(state.selected)}
             filename={state.selected?.name}
             fileSizeLabel={formattedSize}
@@ -171,7 +203,7 @@ export function CreateKaraoke() {
                 <input
                   type="checkbox"
                   checked={state.rightsConfirmed}
-                  disabled={isActive}
+                  disabled={isActive || !processingEnabled}
                   onChange={(event) =>
                     setRightsConfirmed(event.target.checked)
                   }
@@ -186,7 +218,7 @@ export function CreateKaraoke() {
                   <input
                     type="checkbox"
                     checked={state.providerConsentConfirmed}
-                    disabled={isActive}
+                    disabled={isActive || !processingEnabled}
                     onChange={(event) =>
                       setProviderConsentConfirmed(event.target.checked)
                     }
@@ -234,6 +266,7 @@ export function CreateKaraoke() {
                     className="home-cta"
                     onClick={retryProcessing}
                     disabled={
+                      !processingEnabled ||
                       !state.rightsConfirmed ||
                       (requireProviderConsent &&
                         !state.providerConsentConfirmed)
@@ -278,7 +311,7 @@ export function CreateKaraoke() {
             </p>
           ) : null}
         </>
-      )}
+      ) : null}
     </div>
   );
 }

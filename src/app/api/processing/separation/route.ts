@@ -1,3 +1,4 @@
+import { parseClientDurationSeconds } from "@/lib/processing/server/client-duration";
 import {
   ProcessingConfigError,
   requireRealProcessingConfig,
@@ -14,13 +15,6 @@ import {
 
 export const runtime = "nodejs";
 
-function parseDuration(value: FormDataEntryValue | null): number | null {
-  if (typeof value !== "string") return null;
-  const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return n;
-}
-
 export async function POST(request: Request) {
   try {
     const config = requireRealProcessingConfig();
@@ -35,15 +29,15 @@ export async function POST(request: Request) {
       });
     }
 
-    const durationSeconds = parseDuration(form.get("durationSeconds"));
-    if (durationSeconds === null) {
-      return jsonFailure({
-        stage: "validating",
-        code: "INVALID_DURATION",
-        message: "A valid audio duration is required.",
-        retryable: false,
-      });
+    // Client-claimed duration is untrusted; enforce product limits before any
+    // WaveSpeed upload or isolation submit.
+    const durationResult = parseClientDurationSeconds(
+      form.get("durationSeconds"),
+    );
+    if (!durationResult.ok) {
+      return jsonFailure(durationResult.failure);
     }
+    const durationSeconds = durationResult.durationSeconds;
 
     const validation = validateServerAudioUpload({
       filename: fileEntry.name,
