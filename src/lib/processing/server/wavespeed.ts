@@ -50,6 +50,13 @@ export function isHttpsUrl(value: unknown): value is string {
   }
 }
 
+/** Extract HTTPS media URL from a WaveSpeed binary-upload response body. */
+export function extractWaveSpeedUploadUrl(body: unknown): string | null {
+  const data = unwrapData(body);
+  const url = data.download_url ?? data.url;
+  return isHttpsUrl(url) ? url : null;
+}
+
 /**
  * Validate completed WaveSpeed isolator outputs.
  * outputs[0] = vocals, outputs[1] = instrumental.
@@ -83,13 +90,16 @@ export async function uploadAudioToWaveSpeed(input: {
   });
 
   if (!response.ok) {
-    throw new ProviderHttpError("wavespeed", response.status);
+    throw new ProviderHttpError(
+      "wavespeed",
+      response.status,
+      "upload_binary_failed",
+    );
   }
 
   const body = (await response.json()) as unknown;
-  const data = unwrapData(body);
-  const url = data.url;
-  if (!isHttpsUrl(url)) {
+  const url = extractWaveSpeedUploadUrl(body);
+  if (!url) {
     throw new ProviderHttpError("wavespeed", 502, "Upload response missing URL");
   }
   return url;
@@ -111,7 +121,11 @@ export async function submitVocalIsolation(input: {
   });
 
   if (!response.ok) {
-    throw new ProviderHttpError("wavespeed", response.status);
+    throw new ProviderHttpError(
+      "wavespeed",
+      response.status,
+      "isolator_submit_failed",
+    );
   }
 
   const body = (await response.json()) as unknown;

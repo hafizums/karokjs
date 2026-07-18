@@ -1,0 +1,123 @@
+{
+  "config": {
+    "mode": "real",
+    "realConfigured": true
+  },
+  "network": {
+    "browserRequests": [
+      {
+        "method": "GET",
+        "path": "http://localhost:3000/create"
+      },
+      {
+        "method": "GET",
+        "path": "http://localhost:3000/api/processing/config"
+      },
+      {
+        "method": "GET",
+        "path": "http://localhost:3000/api/processing/config"
+      },
+      {
+        "method": "POST",
+        "path": "http://localhost:3000/api/processing/separation"
+      },
+      {
+        "method": "GET",
+        "path": "http://localhost:3000/api/processing/separation"
+      },
+      {
+        "method": "GET",
+        "path": "http://localhost:3000/api/processing/separation"
+      },
+      {
+        "method": "GET",
+        "path": "http://localhost:3000/api/processing/separation"
+      },
+      {
+        "method": "GET",
+        "path": "http://localhost:3000/api/processing/separation"
+      },
+      {
+        "method": "GET",
+        "path": "http://localhost:3000/api/processing/separation"
+      },
+      {
+        "method": "GET",
+        "path": "http://localhost:3000/api/processing/separation"
+      },
+      {
+        "method": "GET",
+        "path": "http://localhost:3000/api/processing/separation"
+      },
+      {
+        "method": "GET",
+        "path": "http://localhost:3000/api/processing/separation"
+      },
+      {
+        "method": "GET",
+        "path": "http://localhost:3000/api/processing/separation"
+      },
+      {
+        "method": "GET",
+        "path": "http://localhost:3000/api/processing/separation"
+      },
+      {
+        "method": "POST",
+        "path": "http://localhost:3000/api/processing/transcription"
+      },
+      {
+        "method": "POST",
+        "path": "http://localhost:3000/api/processing/transcription"
+      },
+      {
+        "method": "GET",
+        "path": "http://localhost:3000/api/processing/instrumental"
+      },
+      {
+        "method": "GET",
+        "path": "http://localhost:3000/karaoke/result/edit"
+      },
+      {
+        "method": "GET",
+        "path": "http://localhost:3000/karaoke/result/edit"
+      }
+    ],
+    "separationPosts": 1,
+    "separationPolls": 10,
+    "transcriptionPosts": 2,
+    "instrumentalGets": 1,
+    "providerHostHits": 0,
+    "keyLikeQueryOrHeader": false
+  },
+  "stages": [
+    "failed_transcribing_once",
+    "completed"
+  ],
+  "completed": true,
+  "editorLoaded": true,
+  "instrumentalReadyState": {
+    "readyState": 4,
+    "duration": 9.195102,
+    "currentTime": 2.115965,
+    "paused": false,
+    "srcKind": "blob",
+    "playResult": "played",
+    "wordCount": 0,
+    "hasActiveWord": false
+  },
+  "lyricHighlightObserved": true,
+  "reloadRestored": true,
+  "transcriptionRetryWithoutExtraSeparation": true,
+  "errors": [],
+  "lyricWordsPresent": true,
+  "lyricVerify": {
+    "editWords": 20,
+    "playInfo": {
+      "duration": 9.195102,
+      "playOk": true,
+      "maxWords": 3,
+      "activeAt": 0.5,
+      "title": "live-gate-speech"
+    }
+  }
+}

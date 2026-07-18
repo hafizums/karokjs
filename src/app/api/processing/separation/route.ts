@@ -4,7 +4,11 @@ import {
   requireRealProcessingConfig,
 } from "@/lib/processing/server/env";
 import { signSeparationJobToken, verifySeparationJobToken } from "@/lib/processing/server/job-token";
-import { jsonFailure, mapProviderError } from "@/lib/processing/server/provider-errors";
+import {
+  ProviderHttpError,
+  jsonFailure,
+  mapProviderError,
+} from "@/lib/processing/server/provider-errors";
 import { validateServerAudioUpload } from "@/lib/processing/server/server-file-validation";
 import {
   fetchWaveSpeedPrediction,
@@ -75,6 +79,14 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof ProcessingConfigError) {
       return jsonFailure(mapProviderError(error, "uploading"), 503);
+    }
+    // Safe diagnostics only: provider name + HTTP status. Never log bodies/keys.
+    if (error instanceof ProviderHttpError) {
+      console.error(
+        `[processing/separation] ${error.provider} http=${error.status} step=${error.message}`,
+      );
+    } else if (error instanceof Error) {
+      console.error(`[processing/separation] ${error.name}`);
     }
     const failure = mapProviderError(error, "uploading");
     const status =
